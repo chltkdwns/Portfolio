@@ -332,23 +332,84 @@ function renderStack() {
       <div class="stack-group">
         <h3>${escapeHtml(category.title)}</h3>
         <p class="stack-group-desc">${escapeHtml(category.desc)}</p>
-        <div class="skill-container">
-          ${category.skills
-            .map((key) => {
-              const skill = skillData[key];
-              return `
-                <button type="button" class="skill-item" data-skill="${key}" aria-expanded="false">
-                  <img src="${skill.icon}" alt="" />
-                  <span>${escapeHtml(skill.label)}</span>
-                </button>
-              `;
-            })
-            .join("")}
+        <div class="stack-group-skills">
+          <div class="skill-container">
+            ${category.skills
+              .map((key) => {
+                const skill = skillData[key];
+                return `
+                  <button type="button" class="skill-item" data-skill="${key}" aria-expanded="false">
+                    <img src="${skill.icon}" alt="" />
+                    <span>${escapeHtml(skill.label)}</span>
+                  </button>
+                `;
+              })
+              .join("")}
+          </div>
+          <div class="skill-info" role="region" aria-live="polite">
+            <h3 class="skill-info-title"></h3>
+            <p class="skill-info-desc"></p>
+          </div>
         </div>
       </div>
     `
     )
     .join("");
+
+  bindSkillPanel(container);
+}
+
+function bindSkillPanel(container) {
+  if (!container) return;
+
+  let activeButton = null;
+
+  const closeAllPanels = () => {
+    container.querySelectorAll(".skill-info").forEach((panel) => {
+      panel.classList.remove("is-open");
+      panel.style.display = "none";
+    });
+    container.querySelectorAll(".skill-item").forEach((btn) => {
+      btn.classList.remove("is-active");
+      btn.setAttribute("aria-expanded", "false");
+    });
+    activeButton = null;
+  };
+
+  const openPanel = (button, data) => {
+    const group = button.closest(".stack-group");
+    if (!group) return;
+
+    const panel = group.querySelector(".skill-info");
+    const title = group.querySelector(".skill-info-title");
+    const desc = group.querySelector(".skill-info-desc");
+    if (!panel || !title || !desc) return;
+
+    title.textContent = data.title;
+    desc.textContent = data.desc;
+    panel.classList.add("is-open");
+    panel.style.display = "block";
+    button.classList.add("is-active");
+    button.setAttribute("aria-expanded", "true");
+    activeButton = button;
+  };
+
+  container.querySelectorAll(".skill-item").forEach((button) => {
+    button.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const key = button.dataset.skill;
+      const data = skillData[key];
+      if (!data) return;
+
+      const isSame = activeButton === button;
+      closeAllPanels();
+      if (isSame) return;
+
+      openPanel(button, data);
+    });
+  });
 }
 
 function renderFeaturedProject() {
@@ -590,40 +651,6 @@ function initProjectModal() {
   });
 }
 
-// === 스킬 패널 ===
-function initSkillPanel() {
-  const skillInfo = document.getElementById("skill-info");
-  const skillTitle = document.getElementById("skill-title");
-  const skillDesc = document.getElementById("skill-desc");
-  let activeButton = null;
-
-  document.querySelectorAll(".skill-item").forEach((button) => {
-    button.addEventListener("click", () => {
-      const key = button.dataset.skill;
-      const data = skillData[key];
-      if (!data) return;
-
-      const isSame = activeButton === button && !skillInfo.hidden;
-
-      document.querySelectorAll(".skill-item").forEach((btn) => {
-        btn.setAttribute("aria-expanded", "false");
-      });
-
-      if (isSame) {
-        skillInfo.hidden = true;
-        activeButton = null;
-        return;
-      }
-
-      skillTitle.textContent = data.title;
-      skillDesc.textContent = data.desc;
-      skillInfo.hidden = false;
-      button.setAttribute("aria-expanded", "true");
-      activeButton = button;
-    });
-  });
-}
-
 // === 배경 전환 & 네비 ===
 function initSectionObserver() {
   const background = document.querySelector(".background-layer");
@@ -681,31 +708,45 @@ function initSectionObserver() {
 }
 
 // === 스크롤 ===
-function initSmoothScroll() {
+function scrollToSection(hash) {
+  const target = document.querySelector(hash);
+  if (!target) return;
+
   const headerHeight = parseInt(
     getComputedStyle(document.documentElement).getPropertyValue("--header-h"),
     10
   );
 
-  document.querySelectorAll('.main-nav a[href^="#"]').forEach((anchor) => {
+  window.scrollTo({
+    top: target.offsetTop - headerHeight,
+    behavior: "smooth",
+  });
+}
+
+function initSmoothScroll() {
+  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+    const href = anchor.getAttribute("href");
+    if (!href || href === "#") return;
+
     anchor.addEventListener("click", (e) => {
       e.preventDefault();
-      const target = document.querySelector(anchor.getAttribute("href"));
-      if (!target) return;
-
-      window.scrollTo({
-        top: target.offsetTop - headerHeight,
-        behavior: "smooth",
-      });
+      scrollToSection(href);
     });
   });
 }
 
 // === 초기화 ===
-renderStack();
-renderFeaturedProject();
-renderProjects();
-initSkillPanel();
-initProjectModal();
-initSectionObserver();
-initSmoothScroll();
+function initApp() {
+  renderStack();
+  renderFeaturedProject();
+  renderProjects();
+  initProjectModal();
+  initSectionObserver();
+  initSmoothScroll();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
